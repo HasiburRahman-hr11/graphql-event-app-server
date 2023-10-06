@@ -1,10 +1,13 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const { graphqlHTTP } = require("express-graphql");
-const { buildSchema } = require("graphql");
+const isAuth = require('./middleware/is-auth');
+
 const { default: mongoose } = require("mongoose");
 
-const Event = require("./models/Event");
+
+const graphqlSchema = require('./graphql/schema');
+const graphqlResolvers = require('./graphql/resolvers');
 
 require("dotenv").config();
 
@@ -12,66 +15,13 @@ const app = express();
 
 app.use(bodyParser.json());
 
+app.use(isAuth);
 
 app.use(
   "/graphql",
   graphqlHTTP({
-    schema: buildSchema(`
-        type Event {
-            _id: ID!
-            title: String!
-            description: String!
-            price: Float!
-            date: String!
-        }
-
-        input CreateEventInput {
-            title: String!
-            description: String!
-            price: Float!
-            date: String!
-        }
-
-        type rootQuery {
-            events : [Event!]!
-        }
-
-        type rootMutation {
-            createEvent(eventInput:CreateEventInput) : Event
-        }
-
-        schema {
-            query: rootQuery
-            mutation: rootMutation
-        }
-    `),
-    rootValue: {
-      events: async () => {
-        try {
-            const events = await Event.find();
-
-            return events;
-        } catch (error) {
-            console.log(error);
-        }
-      },
-
-      createEvent: async ({ eventInput }) => {
-        try {
-          const event = new Event({
-            title: eventInput.title,
-            description: eventInput.description,
-            price: +eventInput.price,
-            date: eventInput.date,
-          });
-
-          await event.save();
-          return event;
-        } catch (error) {
-          console.log(error);
-        }
-      },
-    },
+    schema: graphqlSchema,
+    rootValue: graphqlResolvers,
     graphiql: true, // This is to debug GraphQL in development mode.
   })
 );
